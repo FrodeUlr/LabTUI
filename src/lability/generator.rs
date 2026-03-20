@@ -142,6 +142,17 @@ pub fn generate_ps1(config: &LabConfig) -> String {
     }
 
     out.push_str("\n    Node $AllNodes.NodeName {\n\n");
+    // PowerShell 7's DSC compiler does NOT write a .mof file for a Node block
+    // that contains zero resource instances — it creates the output directory
+    // but leaves it empty.  Start-LabConfiguration then fails with
+    // "Cannot locate node '<Name>' file".  A Script resource whose TestScript
+    // always returns $true is a genuine no-op (SetScript never runs) but
+    // forces the compiler to emit the required .mof for every node.
+    out.push_str("        Script DSCStatus {\n");
+    out.push_str("            GetScript  = { return @{ Result = 'OK' } }\n");
+    out.push_str("            TestScript = { return $true }\n");
+    out.push_str("            SetScript  = { }\n");
+    out.push_str("        }\n\n");
     out.push_str("    }\n\n");
     out.push_str("}\n\n");
     out.push_str(&format!(
@@ -296,6 +307,26 @@ mod tests {
             !ps1.contains("LocalConfigurationManager"),
             "LocalConfigurationManager must not appear in the generated PS1 – \
              it causes DSC to generate only .meta.mof instead of .mof"
+        );
+    }
+
+    #[test]
+    fn ps1_node_block_has_script_resource_for_mof_generation() {
+        // PowerShell 7's DSC compiler does not emit a .mof for an empty Node
+        // block — a no-op Script resource forces the compiler to produce one.
+        let cfg = make_config();
+        let ps1 = generate_ps1(&cfg);
+        assert!(
+            ps1.contains("Script DSCStatus"),
+            "Node block must contain Script DSCStatus so a .mof is always compiled"
+        );
+        assert!(
+            ps1.contains("TestScript = { return $true }"),
+            "TestScript must return $true so the resource is a genuine no-op"
+        );
+        assert!(
+            ps1.contains("SetScript  = { }"),
+            "SetScript must be empty (no-op)"
         );
     }
 
