@@ -60,15 +60,49 @@ pub fn render(f: &mut Frame, _app: &mut App) {
         ]),
         Line::from(vec![
             Span::styled("  Esc         ", Style::default().fg(Color::Cyan)),
-            Span::raw("Go back to main menu"),
+            Span::raw("Go back to main menu  (or cancel an active edit)"),
         ]),
         Line::from(vec![
             Span::styled("  q / Q       ", Style::default().fg(Color::Cyan)),
-            Span::raw("Quit the application"),
+            Span::raw("Quit the application  (disabled while editing)"),
         ]),
         Line::from(vec![
             Span::styled("  ?           ", Style::default().fg(Color::Cyan)),
             Span::raw("Open this help screen"),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  INLINE TEXT EDITING",
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(vec![
+            Span::styled("  Enter       ", Style::default().fg(Color::Cyan)),
+            Span::raw("Start editing the focused text field"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Backspace   ", Style::default().fg(Color::Cyan)),
+            Span::raw("Delete the last character"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Enter       ", Style::default().fg(Color::Cyan)),
+            Span::raw("Confirm edit and save value"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Tab / S-Tab ", Style::default().fg(Color::Cyan)),
+            Span::raw("Confirm edit and move to next / previous field"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Esc         ", Style::default().fg(Color::Cyan)),
+            Span::raw("Cancel edit without saving"),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  DASHBOARD  (main screen)",
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(vec![
+            Span::styled("  n           ", Style::default().fg(Color::Cyan)),
+            Span::raw("Rename the lab (inline edit)"),
         ]),
         Line::from(""),
         Line::from(Span::styled(
@@ -85,11 +119,15 @@ pub fn render(f: &mut Frame, _app: &mut App) {
         ]),
         Line::from(vec![
             Span::styled("  Tab / S-Tab ", Style::default().fg(Color::Cyan)),
-            Span::raw("Move between editable fields"),
+            Span::raw("Move between fields (confirms any active text edit)"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Enter       ", Style::default().fg(Color::Cyan)),
+            Span::raw("Edit text fields: Node Name, Role, Media ID, IP Address"),
         ]),
         Line::from(vec![
             Span::styled("  +/-         ", Style::default().fg(Color::Cyan)),
-            Span::raw("Increment / decrement numeric fields"),
+            Span::raw("Increment / decrement numeric fields (CPU, memory)"),
         ]),
         Line::from(""),
         Line::from(Span::styled(
@@ -103,6 +141,10 @@ pub fn render(f: &mut Frame, _app: &mut App) {
         Line::from(vec![
             Span::styled("  d           ", Style::default().fg(Color::Cyan)),
             Span::raw("Delete selected switch"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Enter       ", Style::default().fg(Color::Cyan)),
+            Span::raw("Rename selected switch (inline edit)"),
         ]),
         Line::from(vec![
             Span::styled("  t           ", Style::default().fg(Color::Cyan)),
@@ -123,12 +165,20 @@ pub fn render(f: &mut Frame, _app: &mut App) {
             Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
         )),
         Line::from(vec![
+            Span::styled("  o           ", Style::default().fg(Color::Cyan)),
+            Span::raw("Edit the output directory (where .psd1 / .ps1 are written)"),
+        ]),
+        Line::from(vec![
             Span::styled("  Enter       ", Style::default().fg(Color::Cyan)),
             Span::raw("Execute the highlighted action"),
         ]),
         Line::from(vec![
+            Span::styled("  Gen. Config ", Style::default().fg(Color::Blue)),
+            Span::raw("Writes <Lab>.psd1 and <Lab>.ps1 to the output directory"),
+        ]),
+        Line::from(vec![
             Span::styled("  Start Lab   ", Style::default().fg(Color::Green)),
-            Span::raw("Runs Start-LabConfiguration via PowerShell"),
+            Span::raw("Generates config files, compiles DSC MOFs, then starts the lab"),
         ]),
         Line::from(vec![
             Span::styled("  Stop Lab    ", Style::default().fg(Color::Yellow)),
@@ -136,12 +186,25 @@ pub fn render(f: &mut Frame, _app: &mut App) {
         ]),
         Line::from(vec![
             Span::styled("  Reset Lab   ", Style::default().fg(Color::Cyan)),
-            Span::raw("Recreates the lab from scratch"),
+            Span::raw("Deletes and recreates the lab from scratch"),
         ]),
         Line::from(vec![
             Span::styled("  Delete Lab  ", Style::default().fg(Color::Red)),
             Span::raw("Removes the lab and all VMs permanently"),
         ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  GENERATED FILES",
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "  <LabName>.psd1  Lability configuration data (AllNodes + NonNodeData)",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(Span::styled(
+            "  <LabName>.ps1   DSC configuration script (compiles to MOF)",
+            Style::default().fg(Color::White),
+        )),
         Line::from(""),
         Line::from(Span::styled(
             "  REQUIREMENTS",

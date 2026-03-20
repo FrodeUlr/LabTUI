@@ -35,9 +35,15 @@ pub fn run_powershell(command: &str) -> Result<PsResult> {
 }
 
 /// Build the PowerShell command to start a Lability lab.
-pub fn start_lab_command(config_path: &str, config_data_path: &str) -> String {
+///
+/// `env_name`   – the lab / environment name (used to derive file names).
+/// `output_dir` – directory where the `.psd1` and `.ps1` files were written.
+pub fn start_lab_command(env_name: &str, output_dir: &str) -> String {
     format!(
-        "Import-Module Lability; Start-LabConfiguration -ConfigurationData '{config_data_path}' -Path '{config_path}' -Verbose"
+        "Import-Module Lability; \
+         Set-Location '{output_dir}'; \
+         & '.\\{env_name}.ps1'; \
+         Start-LabConfiguration -ConfigurationData '.\\{env_name}.psd1' -Path '.\\{env_name}' -Verbose"
     )
 }
 

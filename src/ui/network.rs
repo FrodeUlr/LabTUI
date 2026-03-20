@@ -35,6 +35,12 @@ fn render_switch_list(f: &mut Frame, app: &mut App, area: Rect) {
         .enumerate()
         .map(|(i, sw)| {
             let focused = Some(i) == app.selected_network;
+            // Show live editing value if we're renaming this switch
+            let display_name = if focused && app.is_editing {
+                format!("{}█", app.editing_value)
+            } else {
+                sw.name.clone()
+            };
             let style = if focused {
                 Style::default()
                     .fg(Color::Black)
@@ -49,7 +55,7 @@ fn render_switch_list(f: &mut Frame, app: &mut App, area: Rect) {
                 Style::default().fg(Color::DarkGray)
             };
             ListItem::new(Line::from(vec![
-                Span::styled(format!("  {:22}", sw.name), style),
+                Span::styled(format!("  {:22}", display_name), style),
                 Span::styled(format!("[{}]", sw.switch_type), type_style),
             ]))
         })
@@ -77,16 +83,29 @@ fn render_switch_list(f: &mut Frame, app: &mut App, area: Rect) {
 
     f.render_stateful_widget(list, chunks[0], &mut list_state);
 
-    let hints = Paragraph::new(vec![Line::from(vec![
-        Span::styled(" a", Style::default().fg(Color::Cyan)),
-        Span::raw(" Add  "),
-        Span::styled("d", Style::default().fg(Color::Cyan)),
-        Span::raw(" Delete  "),
-        Span::styled("t", Style::default().fg(Color::Cyan)),
-        Span::raw(" Toggle Type  "),
-        Span::styled("Esc", Style::default().fg(Color::Cyan)),
-        Span::raw(" Back"),
-    ])])
+    let hint_spans = if app.is_editing {
+        vec![
+            Span::styled(" Enter", Style::default().fg(Color::Cyan)),
+            Span::raw(" Confirm  "),
+            Span::styled("Esc", Style::default().fg(Color::Cyan)),
+            Span::raw(" Cancel"),
+        ]
+    } else {
+        vec![
+            Span::styled(" a", Style::default().fg(Color::Cyan)),
+            Span::raw(" Add  "),
+            Span::styled("d", Style::default().fg(Color::Cyan)),
+            Span::raw(" Delete  "),
+            Span::styled("Enter", Style::default().fg(Color::Cyan)),
+            Span::raw(" Rename  "),
+            Span::styled("t", Style::default().fg(Color::Cyan)),
+            Span::raw(" Toggle Type  "),
+            Span::styled("Esc", Style::default().fg(Color::Cyan)),
+            Span::raw(" Back"),
+        ]
+    };
+
+    let hints = Paragraph::new(vec![Line::from(hint_spans)])
     .block(
         Block::default()
             .borders(Borders::ALL)

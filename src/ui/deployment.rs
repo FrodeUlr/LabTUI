@@ -10,6 +10,7 @@ use crate::app::App;
 use crate::lability::deployment::{DeploymentAction, DeploymentStatus};
 
 const ACTIONS: &[DeploymentAction] = &[
+    DeploymentAction::GenerateConfig,
     DeploymentAction::Start,
     DeploymentAction::Stop,
     DeploymentAction::Reset,
@@ -22,14 +23,14 @@ pub fn render(f: &mut Frame, app: &mut App) {
 
     let outer = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(5), Constraint::Min(0)])
+        .constraints([Constraint::Length(6), Constraint::Min(0)])
         .split(area);
 
     render_status_bar(f, app, outer[0]);
 
     let inner = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(28), Constraint::Min(0)])
+        .constraints([Constraint::Length(30), Constraint::Min(0)])
         .split(outer[1]);
 
     render_action_panel(f, app, inner[0]);
@@ -52,20 +53,40 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
         app.lab_config.environment_name.clone()
     };
 
-    let row = vec![
-        Span::styled(format!("  {} Status: ", indicator), Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
-        Span::styled(status_str, Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
-        Span::raw("    "),
-        Span::styled("Lab: ", Style::default().fg(Color::DarkGray)),
-        Span::styled(env, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::raw("    "),
-        Span::styled(
-            format!("Nodes: {}", app.lab_config.nodes.len()),
-            Style::default().fg(Color::DarkGray),
-        ),
+    // Show live editing value for the output dir when the user presses 'o'
+    let out_dir_display = if app.is_editing {
+        format!("{}█", app.editing_value)
+    } else {
+        app.lab_output_dir.clone()
+    };
+    let out_dir_style = if app.is_editing {
+        Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::Yellow)
+    };
+
+    let rows = vec![
+        Line::from(vec![
+            Span::styled(format!("  {} Status: ", indicator), Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
+            Span::styled(status_str, Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
+            Span::raw("    "),
+            Span::styled("Lab: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(env, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::raw("    "),
+            Span::styled(format!("Nodes: {}", app.lab_config.nodes.len()), Style::default().fg(Color::DarkGray)),
+        ]),
+        Line::from(vec![
+            Span::styled("  Output Dir   : ", Style::default().fg(Color::DarkGray)),
+            Span::styled(out_dir_display, out_dir_style),
+            if !app.is_editing {
+                Span::styled("  [o to change]", Style::default().fg(Color::DarkGray))
+            } else {
+                Span::styled("  [Enter/Esc]", Style::default().fg(Color::DarkGray))
+            },
+        ]),
     ];
 
-    let bar = Paragraph::new(vec![Line::from(row)])
+    let bar = Paragraph::new(rows)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -184,6 +205,7 @@ fn render_log_panel(f: &mut Frame, app: &App, area: Rect) {
 
 fn action_fg(action: &DeploymentAction) -> Color {
     match action {
+        DeploymentAction::GenerateConfig => Color::Blue,
         DeploymentAction::Start => Color::Green,
         DeploymentAction::Stop => Color::Yellow,
         DeploymentAction::Reset => Color::Cyan,

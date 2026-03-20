@@ -75,7 +75,20 @@ fn draw(f: &mut ratatui::Frame, app: &mut App) {
 }
 
 fn handle_key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
-    // Global keys (work from any screen)
+    // Ctrl-C always quits, even during editing
+    if let KeyCode::Char('c') = code
+        && modifiers.contains(KeyModifiers::CONTROL) {
+            app.should_quit = true;
+            return;
+        }
+
+    // While in editing mode, all other keys feed the editor
+    if app.is_editing {
+        handle_editing(app, code);
+        return;
+    }
+
+    // Global keys (only when NOT editing)
     match code {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             app.should_quit = true;
@@ -87,11 +100,6 @@ fn handle_key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
         }
         KeyCode::Esc => {
             app.go_home();
-            return;
-        }
-        // Ctrl-C
-        KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
-            app.should_quit = true;
             return;
         }
         _ => {}
@@ -108,11 +116,40 @@ fn handle_key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
     }
 }
 
+/// Handle key events while the user is editing an inline text field.
+fn handle_editing(app: &mut App, code: KeyCode) {
+    match code {
+        KeyCode::Char(c) => app.push_edit_char(c),
+        KeyCode::Backspace => app.backspace_edit(),
+        KeyCode::Enter => app.confirm_edit(),
+        KeyCode::Esc => app.cancel_edit(),
+        // Tab confirms the current field and moves focus to the next
+        KeyCode::Tab => {
+            app.confirm_edit();
+            if app.current_screen == Screen::VmConfig {
+                app.vm_field_next();
+            }
+        }
+        KeyCode::BackTab => {
+            app.confirm_edit();
+            if app.current_screen == Screen::VmConfig {
+                app.vm_field_prev();
+            }
+        }
+        _ => {}
+    }
+}
+
 fn handle_dashboard(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Up => app.menu_up(),
         KeyCode::Down => app.menu_down(),
         KeyCode::Enter => app.menu_select(),
+        // 'n' renames the lab
+        KeyCode::Char('n') | KeyCode::Char('N') => {
+            app.current_screen = Screen::Dashboard;
+            app.start_editing();
+        }
         _ => {}
     }
 }
@@ -125,6 +162,8 @@ fn handle_vm_config(app: &mut App, code: KeyCode) {
         KeyCode::Char('d') | KeyCode::Char('D') => app.delete_selected_node(),
         KeyCode::Tab => app.vm_field_next(),
         KeyCode::BackTab => app.vm_field_prev(),
+        // Enter starts editing the focused text field
+        KeyCode::Enter => app.start_editing(),
         KeyCode::Char('+') => app.vm_field_increment(),
         KeyCode::Char('-') => app.vm_field_decrement(),
         _ => {}
@@ -138,6 +177,8 @@ fn handle_network(app: &mut App, code: KeyCode) {
         KeyCode::Char('a') | KeyCode::Char('A') => app.add_network(),
         KeyCode::Char('d') | KeyCode::Char('D') => app.delete_selected_network(),
         KeyCode::Char('t') | KeyCode::Char('T') => app.toggle_switch_type(),
+        // Enter renames the selected switch
+        KeyCode::Enter => app.start_editing(),
         _ => {}
     }
 }
@@ -156,6 +197,8 @@ fn handle_deployment(app: &mut App, code: KeyCode) {
         KeyCode::Up => app.action_up(),
         KeyCode::Down => app.action_down(),
         KeyCode::Enter => app.run_deployment_action(),
+        // 'o' edits the output directory
+        KeyCode::Char('o') | KeyCode::Char('O') => app.start_editing(),
         _ => {}
     }
 }

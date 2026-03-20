@@ -47,6 +47,7 @@ impl Deployment {
 /// Actions that can be requested against a deployment
 #[derive(Debug, Clone, PartialEq)]
 pub enum DeploymentAction {
+    GenerateConfig,
     Start,
     Stop,
     Reset,
@@ -56,6 +57,7 @@ pub enum DeploymentAction {
 impl std::fmt::Display for DeploymentAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            DeploymentAction::GenerateConfig => write!(f, "Generate Config Files"),
             DeploymentAction::Start => write!(f, "Start Lab"),
             DeploymentAction::Stop => write!(f, "Stop Lab"),
             DeploymentAction::Reset => write!(f, "Reset Lab"),

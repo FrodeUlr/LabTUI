@@ -3,6 +3,7 @@ mod tests {
     use crate::app::{App, Screen};
     use crate::lability::config::{default_media_list, LabConfig, SwitchType};
     use crate::lability::deployment::DeploymentStatus;
+    use crate::ui::vm_config::VmField;
 
     fn make_app() -> App {
         App::new()
@@ -19,6 +20,9 @@ mod tests {
         assert!(app.lab_config.nodes.is_empty());
         assert!(app.lab_config.networks.is_empty());
         assert_eq!(app.deployment.status, DeploymentStatus::NotStarted);
+        assert!(!app.is_editing);
+        assert!(app.editing_value.is_empty());
+        assert_eq!(app.lab_output_dir, ".");
     }
 
     // ── Menu navigation ────────────────────────────────────────────────────────
@@ -134,7 +138,6 @@ mod tests {
 
     #[test]
     fn vm_cpu_increment() {
-        use crate::ui::vm_config::VmField;
         let mut app = make_app();
         app.add_node();
         app.selected_node = Some(0);
@@ -146,7 +149,6 @@ mod tests {
 
     #[test]
     fn vm_cpu_decrement() {
-        use crate::ui::vm_config::VmField;
         let mut app = make_app();
         app.add_node();
         app.selected_node = Some(0);
@@ -158,7 +160,6 @@ mod tests {
 
     #[test]
     fn vm_cpu_does_not_go_below_one() {
-        use crate::ui::vm_config::VmField;
         let mut app = make_app();
         app.add_node();
         app.selected_node = Some(0);
@@ -166,6 +167,174 @@ mod tests {
         app.vm_focused_field = VmField::CpuCount;
         app.vm_field_decrement();
         assert_eq!(app.lab_config.nodes[0].cpu_count, 1);
+    }
+
+    // ── Inline text editing ────────────────────────────────────────────────────
+
+    #[test]
+    fn start_editing_text_field_sets_editing_flag() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::NodeName;
+        app.start_editing();
+        assert!(app.is_editing);
+        assert_eq!(app.editing_value, app.lab_config.nodes[0].node_name.clone());
+    }
+
+    #[test]
+    fn start_editing_numeric_field_does_nothing() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::CpuCount;
+        app.start_editing();
+        assert!(!app.is_editing);
+    }
+
+    #[test]
+    fn push_edit_char_appends() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::NodeName;
+        app.start_editing();
+        app.editing_value.clear();
+        app.push_edit_char('D');
+        app.push_edit_char('C');
+        app.push_edit_char('0');
+        app.push_edit_char('1');
+        assert_eq!(app.editing_value, "DC01");
+    }
+
+    #[test]
+    fn backspace_edit_removes_last_char() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::NodeName;
+        app.start_editing();
+        app.editing_value = "DC01".to_string();
+        app.backspace_edit();
+        assert_eq!(app.editing_value, "DC0");
+    }
+
+    #[test]
+    fn confirm_edit_saves_node_name() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::NodeName;
+        app.is_editing = true;
+        app.editing_value = "MyNewNode".to_string();
+        app.confirm_edit();
+        assert!(!app.is_editing);
+        assert_eq!(app.lab_config.nodes[0].node_name, "MyNewNode");
+    }
+
+    #[test]
+    fn confirm_edit_saves_role() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::Role;
+        app.is_editing = true;
+        app.editing_value = "DomainController".to_string();
+        app.confirm_edit();
+        assert_eq!(app.lab_config.nodes[0].role, "DomainController");
+    }
+
+    #[test]
+    fn confirm_edit_saves_ip_address() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::IpAddress;
+        app.is_editing = true;
+        app.editing_value = "192.168.1.10".to_string();
+        app.confirm_edit();
+        assert_eq!(app.lab_config.nodes[0].ip_address, Some("192.168.1.10".to_string()));
+    }
+
+    #[test]
+    fn confirm_edit_clears_ip_when_empty() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.lab_config.nodes[0].ip_address = Some("10.0.0.1".to_string());
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::IpAddress;
+        app.is_editing = true;
+        app.editing_value = String::new();
+        app.confirm_edit();
+        assert_eq!(app.lab_config.nodes[0].ip_address, None);
+    }
+
+    #[test]
+    fn confirm_edit_saves_media_id() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::MediaId;
+        app.is_editing = true;
+        app.editing_value = "2019_x64_Standard_EN_Eval".to_string();
+        app.confirm_edit();
+        assert_eq!(app.lab_config.nodes[0].media_id, "2019_x64_Standard_EN_Eval");
+    }
+
+    #[test]
+    fn cancel_edit_leaves_field_unchanged() {
+        let mut app = make_app();
+        app.add_node();
+        app.selected_node = Some(0);
+        app.current_screen = Screen::VmConfig;
+        app.vm_focused_field = VmField::NodeName;
+        let original = app.lab_config.nodes[0].node_name.clone();
+        app.is_editing = true;
+        app.editing_value = "SomethingElse".to_string();
+        app.cancel_edit();
+        assert!(!app.is_editing);
+        assert_eq!(app.lab_config.nodes[0].node_name, original);
+    }
+
+    #[test]
+    fn confirm_edit_saves_lab_name_on_dashboard() {
+        let mut app = make_app();
+        app.current_screen = Screen::Dashboard;
+        app.is_editing = true;
+        app.editing_value = "CorpLab".to_string();
+        app.confirm_edit();
+        assert_eq!(app.lab_config.environment_name, "CorpLab");
+        assert_eq!(app.deployment.environment_name, "CorpLab");
+    }
+
+    #[test]
+    fn confirm_edit_saves_network_switch_name() {
+        let mut app = make_app();
+        app.add_network();
+        app.current_screen = Screen::Network;
+        app.is_editing = true;
+        app.editing_value = "CORPNET".to_string();
+        app.confirm_edit();
+        assert_eq!(app.lab_config.networks[0].name, "CORPNET");
+    }
+
+    #[test]
+    fn confirm_edit_saves_output_dir() {
+        let mut app = make_app();
+        app.current_screen = Screen::Deployment;
+        app.is_editing = true;
+        app.editing_value = "C:\\Labs\\MyLab".to_string();
+        app.confirm_edit();
+        assert_eq!(app.lab_output_dir, "C:\\Labs\\MyLab");
     }
 
     // ── Network management ─────────────────────────────────────────────────────
@@ -249,7 +418,7 @@ mod tests {
         for _ in 0..100 {
             app.action_down();
         }
-        assert_eq!(app.selected_action, 3); // max index
+        assert_eq!(app.selected_action, 4); // max index is now 4 (5 actions)
 
         for _ in 0..100 {
             app.action_up();
@@ -267,6 +436,16 @@ mod tests {
         assert_eq!(app.current_screen, Screen::Dashboard);
     }
 
+    #[test]
+    fn go_home_cancels_editing() {
+        let mut app = make_app();
+        app.is_editing = true;
+        app.editing_value = "something".to_string();
+        app.go_home();
+        assert!(!app.is_editing);
+        assert!(app.editing_value.is_empty());
+    }
+
     // ── LabConfig model ────────────────────────────────────────────────────────
 
     #[test]
@@ -281,9 +460,11 @@ mod tests {
     #[test]
     fn ps_start_command_contains_import_module() {
         use crate::lability::powershell::start_lab_command;
-        let cmd = start_lab_command("/path/config", "/path/data");
+        let cmd = start_lab_command("MyLab", "C:\\Labs");
         assert!(cmd.contains("Import-Module Lability"));
         assert!(cmd.contains("Start-LabConfiguration"));
+        assert!(cmd.contains("MyLab.psd1"));
+        assert!(cmd.contains("MyLab.ps1"));
     }
 
     #[test]
@@ -301,4 +482,31 @@ mod tests {
         assert!(cmd.contains("MyLab"));
         assert!(cmd.contains("Remove-LabConfiguration"));
     }
+
+    // ── File generation integration ────────────────────────────────────────────
+
+    #[test]
+    fn generate_config_files_writes_to_output_dir() {
+        let mut app = make_app();
+        app.add_node();
+        app.lab_config.nodes[0].node_name = "DC01".to_string();
+        let dir = tempfile::tempdir().expect("tempdir");
+        app.lab_output_dir = dir.path().to_str().unwrap().to_string();
+        app.generate_config_files();
+
+        let env = &app.lab_config.environment_name;
+        assert!(dir.path().join(format!("{env}.psd1")).exists());
+        assert!(dir.path().join(format!("{env}.ps1")).exists());
+    }
+
+    #[test]
+    fn generate_config_files_logs_ok_message() {
+        let mut app = make_app();
+        app.add_node();
+        let dir = tempfile::tempdir().expect("tempdir");
+        app.lab_output_dir = dir.path().to_str().unwrap().to_string();
+        app.generate_config_files();
+        assert!(app.deployment.log_lines.iter().any(|l| l.contains("[OK]")));
+    }
 }
+

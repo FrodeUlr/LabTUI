@@ -88,18 +88,31 @@ fn render_node_list(f: &mut Frame, app: &mut App, area: Rect) {
 
     f.render_stateful_widget(list, chunks[0], &mut list_state);
 
-    let hints = Paragraph::new(vec![
-        Line::from(vec![
+    let edit_hint = if app.is_editing {
+        vec![
+            Span::styled(" Enter", Style::default().fg(Color::Cyan)),
+            Span::raw(" Confirm  "),
+            Span::styled("Esc", Style::default().fg(Color::Cyan)),
+            Span::raw(" Cancel  "),
+            Span::styled("Tab", Style::default().fg(Color::Cyan)),
+            Span::raw(" Next field"),
+        ]
+    } else {
+        vec![
             Span::styled(" a", Style::default().fg(Color::Cyan)),
             Span::raw(" Add  "),
             Span::styled("d", Style::default().fg(Color::Cyan)),
             Span::raw(" Delete  "),
             Span::styled("↑/↓", Style::default().fg(Color::Cyan)),
             Span::raw(" Select  "),
+            Span::styled("Enter", Style::default().fg(Color::Cyan)),
+            Span::raw(" Edit text  "),
             Span::styled("Esc", Style::default().fg(Color::Cyan)),
             Span::raw(" Back"),
-        ]),
-    ])
+        ]
+    };
+
+    let hints = Paragraph::new(vec![Line::from(edit_hint)])
     .block(
         Block::default()
             .borders(Borders::ALL)
@@ -137,9 +150,26 @@ fn render_node_editor(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn render_node_fields(f: &mut Frame, app: &mut App, area: Rect, node: &NodeConfig) {
+    // For the focused text field while editing, show editing_value instead of the stored value
+    let text_display = |stored: String, field: &VmField| -> String {
+        if app.is_editing && &app.vm_focused_field == field {
+            app.editing_value.clone()
+        } else {
+            stored
+        }
+    };
+
     let fields: Vec<(String, String, VmField)> = vec![
-        ("Node Name".to_string(), node.node_name.clone(), VmField::NodeName),
-        ("Role".to_string(), node.role.clone(), VmField::Role),
+        (
+            "Node Name".to_string(),
+            text_display(node.node_name.clone(), &VmField::NodeName),
+            VmField::NodeName,
+        ),
+        (
+            "Role".to_string(),
+            text_display(node.role.clone(), &VmField::Role),
+            VmField::Role,
+        ),
         ("CPU Count".to_string(), node.cpu_count.to_string(), VmField::CpuCount),
         (
             "Startup Memory (GB)".to_string(),
@@ -156,34 +186,68 @@ fn render_node_fields(f: &mut Frame, app: &mut App, area: Rect, node: &NodeConfi
             format!("{:.1}", node.maximum_memory_bytes as f64 / (1024.0 * 1024.0 * 1024.0)),
             VmField::MaxMemory,
         ),
-        ("Media ID".to_string(), node.media_id.clone(), VmField::MediaId),
+        (
+            "Media ID".to_string(),
+            text_display(node.media_id.clone(), &VmField::MediaId),
+            VmField::MediaId,
+        ),
         (
             "IP Address".to_string(),
-            node.ip_address.clone().unwrap_or_default(),
+            text_display(
+                node.ip_address.clone().unwrap_or_default(),
+                &VmField::IpAddress,
+            ),
             VmField::IpAddress,
         ),
     ];
+
+    let is_text_field = |f: &VmField| {
+        matches!(f, VmField::NodeName | VmField::Role | VmField::MediaId | VmField::IpAddress)
+    };
 
     let rows: Vec<Line> = fields
         .iter()
         .map(|(label, value, field)| {
             let is_focused = &app.vm_focused_field == field;
+            let is_active_edit = is_focused && app.is_editing;
+
             let label_style = if is_focused {
                 Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::DarkGray)
             };
-            let value_style = if is_focused {
+
+            // Editing: highlighted background on the value cell
+            let value_style = if is_active_edit {
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
+            } else if is_focused {
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             };
-            let cursor = if is_focused { "▌" } else { " " };
+
+            // Show a blinking block cursor when editing, ▌ when focused, nothing otherwise
+            let cursor = if is_active_edit {
+                "█"
+            } else if is_focused {
+                if is_text_field(field) { "▌[Enter]" } else { "▌[+/-]" }
+            } else {
+                ""
+            };
+            let cursor_style = if is_active_edit {
+                Style::default().fg(Color::White).bg(Color::Cyan)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+
             Line::from(vec![
                 Span::styled(format!("  {:22}", label), label_style),
                 Span::styled(": ", Style::default().fg(Color::DarkGray)),
-                Span::styled(value, value_style),
-                Span::styled(cursor, Style::default().fg(Color::Cyan)),
+                Span::styled(value.clone(), value_style),
+                Span::styled(cursor, cursor_style),
             ])
         })
         .collect();

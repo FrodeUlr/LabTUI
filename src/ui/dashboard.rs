@@ -118,11 +118,22 @@ fn render_info_panel(f: &mut Frame, app: &App, area: Rect) {
         .constraints([Constraint::Min(0), Constraint::Length(5)])
         .split(area);
 
-    // Lab summary
-    let lab_name = if app.lab_config.environment_name.is_empty() {
+    // Lab name: show editing_value with cursor when renaming
+    let lab_name = if app.current_screen == Screen::Dashboard && app.is_editing {
+        format!("{}█", app.editing_value)
+    } else if app.lab_config.environment_name.is_empty() {
         "(no lab configured)".to_string()
     } else {
         app.lab_config.environment_name.clone()
+    };
+
+    let lab_name_style = if app.current_screen == Screen::Dashboard && app.is_editing {
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
     };
 
     let node_count = app.lab_config.nodes.len();
@@ -133,7 +144,7 @@ fn render_info_panel(f: &mut Frame, app: &App, area: Rect) {
     let summary = vec![
         Line::from(vec![
             Span::styled("  Lab Name     : ", Style::default().fg(Color::DarkGray)),
-            Span::styled(lab_name, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(lab_name, lab_name_style),
         ]),
         Line::from(vec![
             Span::styled("  Nodes        : ", Style::default().fg(Color::DarkGray)),
@@ -184,24 +195,35 @@ fn render_info_panel(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(info_block, chunks[0]);
 
     // Key hints at the bottom
-    let hints = Paragraph::new(vec![
-        Line::from(vec![
+    let hint_line = if app.is_editing {
+        vec![
+            Span::styled(" Enter", Style::default().fg(Color::Cyan)),
+            Span::raw(" Confirm  "),
+            Span::styled("Esc", Style::default().fg(Color::Cyan)),
+            Span::raw(" Cancel"),
+        ]
+    } else {
+        vec![
             Span::styled(" ↑/↓", Style::default().fg(Color::Cyan)),
             Span::raw(" Navigate  "),
             Span::styled("Enter", Style::default().fg(Color::Cyan)),
             Span::raw(" Select  "),
+            Span::styled("n", Style::default().fg(Color::Cyan)),
+            Span::raw(" Rename Lab  "),
             Span::styled("q", Style::default().fg(Color::Cyan)),
             Span::raw(" Quit  "),
             Span::styled("?", Style::default().fg(Color::Cyan)),
             Span::raw(" Help"),
-        ]),
-    ])
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::DarkGray)),
-    )
-    .alignment(Alignment::Center);
+        ]
+    };
+
+    let hints = Paragraph::new(vec![Line::from(hint_line)])
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        )
+        .alignment(Alignment::Center);
 
     f.render_widget(hints, chunks[1]);
 }
