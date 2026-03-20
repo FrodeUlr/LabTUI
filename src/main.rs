@@ -12,7 +12,8 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
-use std::io;
+use std::io::{self, Write};
+use std::process::Command;
 
 fn main() -> Result<()> {
     // Setup terminal
@@ -42,7 +43,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_app<B: ratatui::backend::Backend>(
+fn run_app<B: ratatui::backend::Backend + Write>(
     terminal: &mut Terminal<B>,
     app: &mut App,
 ) -> Result<()> {
@@ -55,6 +56,38 @@ fn run_app<B: ratatui::backend::Backend>(
                 continue;
             }
             handle_key(app, key.code, key.modifiers);
+        }
+
+        // If `do_start` queued an interactive command, suspend the TUI, run
+        // pwsh with fully-inherited stdio (so Get-Credential and DSC MOF
+        // compilation get a real terminal), then restore the TUI.
+        if let Some(cmd) = app.pending_interactive_cmd.take() {
+            // ── suspend TUI ──────────────────────────────────────────────────
+            disable_raw_mode()?;
+            execute!(
+                terminal.backend_mut(),
+                LeaveAlternateScreen,
+                DisableMouseCapture
+            )?;
+            terminal.show_cursor()?;
+
+            // ── run PowerShell in the foreground with inherited stdio ────────
+            let success = Command::new("pwsh")
+                .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &cmd])
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+
+            // ── restore TUI ──────────────────────────────────────────────────
+            enable_raw_mode()?;
+            execute!(
+                terminal.backend_mut(),
+                EnterAlternateScreen,
+                EnableMouseCapture
+            )?;
+            terminal.clear()?;
+
+            app.finish_interactive_start(success);
         }
 
         if app.should_quit {

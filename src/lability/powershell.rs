@@ -52,7 +52,8 @@ fn run_ps_inner(command: &str, interactive: bool) -> Result<PsResult> {
 /// `output_dir` – directory where the `.psd1` and `.ps1` files were written.
 pub fn start_lab_command(env_name: &str, output_dir: &str) -> String {
     format!(
-        "Import-Module Lability; \
+        "$ErrorActionPreference = 'Stop'; \
+         Import-Module Lability; \
          Set-Location '{output_dir}'; \
          & '.\\{env_name}.ps1'; \
          Start-LabConfiguration -ConfigurationData '.\\{env_name}.psd1' -Path '.\\{env_name}' -Verbose"

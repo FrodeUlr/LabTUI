@@ -50,6 +50,14 @@ pub struct App {
 
     // Output directory for generated config files
     pub lab_output_dir: String,
+
+    /// When `do_start` is ready to run `Start-LabConfiguration` it stores the
+    /// full PowerShell command here instead of running it inline.  The TUI
+    /// event loop (`run_app` in `main.rs`) picks this up, suspends the
+    /// terminal so PowerShell gets a clean console (needed for `Get-Credential`
+    /// and for DSC MOF compilation), runs the command with inherited stdio,
+    /// then restores the TUI and calls `finish_interactive_start`.
+    pub pending_interactive_cmd: Option<String>,
 }
 
 /// Number of deployment actions (kept in sync with DeploymentAction variants)
@@ -74,6 +82,7 @@ impl App {
             is_editing: false,
             editing_value: String::new(),
             lab_output_dir: String::from("."),
+            pending_interactive_cmd: None,
         }
     }
 
@@ -553,30 +562,23 @@ impl App {
         let cmd =
             powershell::start_lab_command(&self.lab_config.environment_name, &output_dir);
 
-        // Use the interactive runner so that Lability's internal Get-Credential
-        // call can prompt the user for the local administrator password.
-        match powershell::run_powershell_interactive(&cmd) {
-            Ok(result) => {
-                for line in result.stdout.lines() {
-                    self.deployment.add_log(line);
-                }
-                if result.success {
-                    self.deployment.status = DeploymentStatus::Completed;
-                    self.deployment.add_log("[OK] Lab started successfully.");
-                } else {
-                    for line in result.stderr.lines() {
-                        self.deployment.add_log(format!("[ERROR] {line}"));
-                    }
-                    self.deployment.status =
-                        DeploymentStatus::Failed("PowerShell reported an error".to_string());
-                }
-            }
-            Err(e) => {
-                self.deployment
-                    .add_log(format!("[ERROR] Could not launch PowerShell: {e}"));
-                self.deployment.status =
-                    DeploymentStatus::Failed(format!("Launch error: {e}"));
-            }
+        // Hand the command off to the main event loop so it can suspend the TUI,
+        // run pwsh with fully-inherited stdio (needed for Get-Credential and DSC
+        // MOF compilation), then restore the TUI and report the result.
+        self.pending_interactive_cmd = Some(cmd);
+    }
+
+    /// Called by the main event loop after the interactive `Start-LabConfiguration`
+    /// command completes.  Updates deployment status and adds a summary log line.
+    pub fn finish_interactive_start(&mut self, success: bool) {
+        if success {
+            self.deployment.status = DeploymentStatus::Completed;
+            self.deployment.add_log("[OK] Lab started successfully.");
+        } else {
+            self.deployment
+                .add_log("[ERROR] Lab start failed. Check terminal output above for details.");
+            self.deployment.status =
+                DeploymentStatus::Failed("Start-LabConfiguration reported an error".to_string());
         }
     }
 

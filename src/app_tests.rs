@@ -512,6 +512,54 @@ mod tests {
     // ── PowerShell executable ──────────────────────────────────────────────────
 
     #[test]
+    fn do_start_sets_pending_interactive_cmd() {
+        // do_start must NOT run PowerShell inline; instead it should store the
+        // command in `pending_interactive_cmd` so the main event loop can
+        // suspend the TUI before handing the terminal to PowerShell.
+        let mut app = make_app();
+        app.add_node();
+        let dir = tempfile::tempdir().expect("tempdir");
+        app.lab_output_dir = dir.path().to_str().unwrap().to_string();
+
+        // Trigger Start Lab action (index 1 in the deployment menu)
+        app.selected_action = 1;
+        app.run_deployment_action();
+
+        assert!(
+            app.pending_interactive_cmd.is_some(),
+            "do_start must queue the command in pending_interactive_cmd"
+        );
+        let cmd = app.pending_interactive_cmd.as_ref().unwrap();
+        assert!(
+            cmd.contains("Start-LabConfiguration"),
+            "queued command must contain Start-LabConfiguration"
+        );
+        assert!(
+            cmd.contains("$ErrorActionPreference = 'Stop'"),
+            "queued command must set ErrorActionPreference to Stop"
+        );
+    }
+
+    #[test]
+    fn finish_interactive_start_success_marks_completed() {
+        let mut app = make_app();
+        app.finish_interactive_start(true);
+        assert_eq!(app.deployment.status, DeploymentStatus::Completed);
+        assert!(app.deployment.log_lines.iter().any(|l| l.contains("[OK]")));
+    }
+
+    #[test]
+    fn finish_interactive_start_failure_marks_failed() {
+        let mut app = make_app();
+        app.finish_interactive_start(false);
+        assert!(
+            matches!(app.deployment.status, DeploymentStatus::Failed(_)),
+            "status should be Failed on unsuccessful start"
+        );
+        assert!(app.deployment.log_lines.iter().any(|l| l.contains("[ERROR]")));
+    }
+
+    #[test]
     fn powershell_run_uses_pwsh() {
         // run_powershell always targets `pwsh` (PowerShell 7+).
         // Attempting to run an unknown command via pwsh should produce a launch
