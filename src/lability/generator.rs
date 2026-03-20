@@ -142,9 +142,6 @@ pub fn generate_ps1(config: &LabConfig) -> String {
     }
 
     out.push_str("\n    Node $AllNodes.NodeName {\n\n");
-    out.push_str("        LocalConfigurationManager {\n");
-    out.push_str("            RebootNodeIfNeeded = $false\n");
-    out.push_str("        }\n\n");
     out.push_str("    }\n\n");
     out.push_str("}\n\n");
     out.push_str(&format!(
@@ -282,7 +279,24 @@ mod tests {
         let ps1 = generate_ps1(&cfg);
         assert!(ps1.contains("configuration LabConfiguration"));
         assert!(ps1.contains("Node $AllNodes.NodeName"));
-        assert!(ps1.contains("LocalConfigurationManager"));
+        // LocalConfigurationManager must NOT appear inside the configuration
+        // block — placing it there makes PowerShell DSC compile only a
+        // .meta.mof (LCM config) instead of the required .mof node config.
+        assert!(!ps1.contains("LocalConfigurationManager"));
+    }
+
+    #[test]
+    fn ps1_node_block_has_no_lcm() {
+        // Regression guard: ensure the Node block never re-introduces
+        // LocalConfigurationManager. Its presence would cause DSC to produce
+        // only Node01.meta.mof and skip Node01.mof, breaking Start-LabConfiguration.
+        let cfg = make_config();
+        let ps1 = generate_ps1(&cfg);
+        assert!(
+            !ps1.contains("LocalConfigurationManager"),
+            "LocalConfigurationManager must not appear in the generated PS1 – \
+             it causes DSC to generate only .meta.mof instead of .mof"
+        );
     }
 
     #[test]
