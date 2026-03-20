@@ -553,7 +553,9 @@ impl App {
         let cmd =
             powershell::start_lab_command(&self.lab_config.environment_name, &output_dir);
 
-        match powershell::run_powershell(&cmd) {
+        // Use the interactive runner so that Lability's internal Get-Credential
+        // call can prompt the user for the local administrator password.
+        match powershell::run_powershell_interactive(&cmd) {
             Ok(result) => {
                 for line in result.stdout.lines() {
                     self.deployment.add_log(line);

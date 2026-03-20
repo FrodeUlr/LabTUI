@@ -11,19 +11,31 @@ pub struct PsResult {
 
 /// Run a PowerShell command string and return the combined output.
 ///
-/// On non-Windows platforms this function returns a descriptive error so
-/// the application can surface it in the UI rather than crashing.
+/// The process runs in `-NonInteractive` mode, which is safe for commands
+/// that never prompt the user (module checks, VM stop/remove, etc.).
 pub fn run_powershell(command: &str) -> Result<PsResult> {
+    run_ps_inner(command, /*interactive=*/ false)
+}
+
+/// Run a PowerShell command that requires interactive prompts (e.g. `Get-Credential`).
+///
+/// Identical to [`run_powershell`] but omits `-NonInteractive` so that
+/// PowerShell can read from the terminal.  Use this for commands like
+/// `Start-LabConfiguration` where Lability calls `Get-Credential` internally.
+pub fn run_powershell_interactive(command: &str) -> Result<PsResult> {
+    run_ps_inner(command, /*interactive=*/ true)
+}
+
+fn run_ps_inner(command: &str, interactive: bool) -> Result<PsResult> {
     let ps_exe = powershell_exe();
+    let mut args: Vec<&str> = Vec::new();
+    if !interactive {
+        args.push("-NonInteractive");
+    }
+    args.extend(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command]);
+
     let output = Command::new(ps_exe)
-        .args([
-            "-NonInteractive",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            command,
-        ])
+        .args(&args)
         .output()
         .with_context(|| format!("Failed to launch {ps_exe}"))?;
 

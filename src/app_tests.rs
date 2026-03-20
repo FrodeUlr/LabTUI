@@ -536,5 +536,39 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn powershell_interactive_omits_noninteractive_flag() {
+        // run_powershell_interactive must never pass -NonInteractive to pwsh,
+        // because Lability's Start-LabConfiguration calls Get-Credential which
+        // fails with that flag set.
+        //
+        // We verify this indirectly: ask pwsh to print its own invocation
+        // arguments. If -NonInteractive is absent the command should succeed
+        // (or fail only because pwsh is not installed, not because of the flag).
+        use crate::lability::powershell::run_powershell_interactive;
+        let result = run_powershell_interactive("$PSVersionTable.PSVersion.Major");
+        match result {
+            Ok(ps) => {
+                // The command ran; stdout must NOT contain a notice about
+                // NonInteractive mode.
+                assert!(
+                    !ps.stderr.to_lowercase().contains("noninteractive"),
+                    "unexpected NonInteractive error in stderr: {}",
+                    ps.stderr
+                );
+            }
+            Err(e) => {
+                // pwsh not installed – error must mention "pwsh" and must NOT
+                // mention powershell.exe.
+                let msg = e.to_string().to_lowercase();
+                assert!(msg.contains("pwsh"), "expected 'pwsh' in error, got: {e}");
+                assert!(
+                    !msg.contains("powershell.exe"),
+                    "must not fall back to powershell.exe, got: {e}"
+                );
+            }
+        }
+    }
 }
 
