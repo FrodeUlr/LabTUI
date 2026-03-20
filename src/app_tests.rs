@@ -508,5 +508,33 @@ mod tests {
         app.generate_config_files();
         assert!(app.deployment.log_lines.iter().any(|l| l.contains("[OK]")));
     }
+
+    // ── PowerShell executable ──────────────────────────────────────────────────
+
+    #[test]
+    fn powershell_run_uses_pwsh() {
+        // run_powershell always targets `pwsh` (PowerShell 7+).
+        // Attempting to run an unknown command via pwsh should produce a launch
+        // error whose message mentions "pwsh", not "powershell.exe".
+        use crate::lability::powershell::run_powershell;
+        let result = run_powershell("$PSVersionTable.PSVersion.Major");
+        match result {
+            // If pwsh is installed the call succeeds; we just check it ran.
+            Ok(_) => {}
+            // If pwsh is not installed on this machine the error must mention
+            // "pwsh", not "powershell" or "powershell.exe".
+            Err(e) => {
+                let msg = e.to_string().to_lowercase();
+                assert!(
+                    msg.contains("pwsh"),
+                    "expected error to mention 'pwsh', got: {e}"
+                );
+                assert!(
+                    !msg.contains("powershell.exe"),
+                    "must not fall back to powershell.exe, got: {e}"
+                );
+            }
+        }
+    }
 }
 

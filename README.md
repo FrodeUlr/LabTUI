@@ -18,7 +18,7 @@ that automates building Hyper-V lab environments.
 ## Requirements
 
 - Windows 10 / 11 or Windows Server 2016+ with **Hyper-V** enabled
-- PowerShell 5.1+ or PowerShell 7+ (`pwsh`)
+- PowerShell 7+ (`pwsh`) — required by Lability (minimum PowerShell 6.1)
 - [Lability](https://github.com/VirtualEngine/Lability) module:
   ```powershell
   Install-Module -Name Lability -Force

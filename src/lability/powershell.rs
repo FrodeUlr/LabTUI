@@ -81,10 +81,9 @@ pub fn get_switches_command() -> &'static str {
     "Get-VMSwitch | Select-Object -ExpandProperty Name"
 }
 
+/// Always use `pwsh` (PowerShell 7+).
+/// Lability requires at minimum PowerShell 6.1, so `powershell.exe`
+/// (Windows PowerShell 5.x) is never an acceptable choice.
 fn powershell_exe() -> &'static str {
-    if cfg!(target_os = "windows") {
-        "powershell.exe"
-    } else {
-        "pwsh"
-    }
+    "pwsh"
 }

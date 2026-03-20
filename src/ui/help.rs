@@ -215,7 +215,7 @@ pub fn render(f: &mut Frame, _app: &mut App) {
             Style::default().fg(Color::White),
         )),
         Line::from(Span::styled(
-            "  • PowerShell 5.1+ or PowerShell 7+",
+            "  • PowerShell 7+ (pwsh) — Lability requires at minimum PowerShell 6.1",
             Style::default().fg(Color::White),
         )),
         Line::from(Span::styled(
